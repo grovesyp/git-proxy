@@ -1,11 +1,9 @@
 # GitProxy Internal Open Source Fork Governance
 
-Architecture and detailed design for upstream linkage, CVE correlation,
-signed provenance and internal artifact publication
+Architecture and detailed design for upstream linkage, CVE correlation, signed provenance and internal artifact publication
 
-Design proposal - Draft v0.1
+Draft v0.1
 
-**10 August 2026**
 
 > **Core outcome:** Every internally published open-source-derived artifact can be traced from its SHA-256 digest back to the exact internal Git commit and the exact public upstream origin, with current vulnerability status and cryptographically verifiable evidence.
 
@@ -27,7 +25,7 @@ Design proposal - Draft v0.1
 This is an architecture proposal, not a product commitment. Exact API
 names and storage schemas are illustrative.
 
-# Contents
+## Contents
 
 - [1. Executive summary](#1-executive-summary)
 - [2. Goals, non-goals and design principles](#2-goals-non-goals-and-design-principles)
@@ -49,7 +47,7 @@ names and storage schemas are illustrative.
 
 > **Recommended implementation boundary:** Keep CVE ingestion, fork synchronization, build evidence and long-running analysis asynchronous. The Git push path should perform fast local/registry-backed policy checks and emit events; it should not call public vulnerability services synchronously.
 
-# 1. Executive summary
+## 1. Summary
 
 GitProxy already provides a strong Git control point: it sits between
 developers and Git remotes, executes a chain of processors on Git
@@ -117,7 +115,7 @@ inside a broader OSS governance control plane.*
 
 ## Design in one sentence
 
-> **Public source -> private fork -> trusted build -> signed evidence -> internal artifact.** The exact upstream commit is registered when the fork is created; the exact internal commit is recorded when code changes; the build produces an artifact digest; in-toto/SLSA and vulnerability evidence bind claims to that digest; Sigstore signs the claims; the Package Management capability stores and distributes the approved bytes.
+> **Public source -> private fork -> trusted build -> signed evidence -> internal artifact.** The exact upstream commit is registered when the fork is created; the exact internal commit is recorded when code changes; the build produces an artifact digest; in-toto and vulnerability evidence bind claims to that digest; Sigstore signs the claims; the Package Management capability stores and distributes the approved bytes.
 
 # 2. Goals, non-goals and design principles
 
@@ -154,23 +152,11 @@ inside a broader OSS governance control plane.*
 - G10 - Work across Git hosts and allow multiple internal forks of the
   same upstream project.
 
-## 2.2 Non-goals
+### 2.2 Non-goals
 
-- GitProxy should not replace a full SCA/vulnerability platform. It
+- GitProxy should not replace vulnerability platforms. It
   should integrate with one or more scanners and feeds.
 
-- GitProxy should not perform network calls to OSV/NVD/CISA on every
-  push.
-
-- SLSA/in-toto should not be treated as a signing system; Sigstore (or
-  an enterprise signing alternative) supplies authentication/integrity.
-
-- Sigstore should not be treated as a provenance schema; the claims
-  still need in-toto/SLSA/VEX semantics.
-
-- An upstream version string alone is not sufficient identity. Mutable
-  tags and internally renamed versions must never be the only linkage
-  key.
 
 ## 2.3 Design principles
 
@@ -184,9 +170,9 @@ inside a broader OSS governance control plane.*
 | Separation of concerns               | GitProxy controls Git; CI builds; vulnerability services analyze; Sigstore signs; Package Management stores/distributes. |
 | Open formats first                   | Use in-toto/SLSA, CycloneDX and Sigstore-compatible bundles to reduce proprietary coupling.                       |
 
-# 3. Current GitProxy foundation and extension boundary
+## 3. Current GitProxy foundation and extension boundary
 
-## 3.1 Existing capabilities to reuse
+### 3.1 Existing capabilities to reuse
 
 | **Existing GitProxy capability**          | **How the design uses it**                                                                                           |
 |-------------------------------------------|----------------------------------------------------------------------------------------------------------------------|
@@ -197,28 +183,8 @@ inside a broader OSS governance control plane.*
 | BFF service API + React UI                | Extend core service/UI for fork metadata, CVE state and artifact/evidence views. [1]                               |
 | v2 internal repo IDs / multi-host support | Allows multiple internal forks of one upstream repo and different SCM providers. [4]                               |
 
-## 3.2 Why this cannot be only a plugin
 
-GitProxy plugins are inserted into the Git action chain, and the current
-plugin mechanism explicitly does not extend the dashboard UI or its
-backing API. Plugins are therefore appropriate for enforcement hooks,
-but not for the persistent registry, UI, CVE feed processing, evidence
-index or fork lifecycle workflows. [3]
-
-> **Recommended boundary:** Implement a small GitProxy processor/plugin for push-time enforcement and event emission, but add first-class service/API/UI/data-model support for the managed-fork domain. Run feed ingestion, fork synchronization and evidence generation as companion services/workers.
-
-## 3.3 Naming collision: GitProxy attestationConfig
-
-Current GitProxy configuration already contains `attestationConfig`,
-but it configures reviewer checkbox questions in the human approval
-form. It is unrelated to in-toto software attestations. [5]
-
-Recommendation: retain backwards compatibility, but use explicit names
-such as `reviewAttestation` for the existing concept and
-`supplyChainEvidence` / `artifactAttestations` for in-toto/Sigstore
-evidence in new APIs and UI.
-
-# 4. Proposed target architecture
+## 4. Proposed target architecture
 
 ```mermaid
 flowchart LR
@@ -271,7 +237,7 @@ candidate / approved / evidence"]
 
 *Figure 2 - Target component architecture and major information flows.*
 
-## 4.1 Control-plane components
+### 4.1 Control-plane components
 
 | **Component**             | **Primary responsibility**                                                                                         | **Persistent outputs**                         |
 |---------------------------|--------------------------------------------------------------------------------------------------------------------|------------------------------------------------|
@@ -281,7 +247,7 @@ candidate / approved / evidence"]
 | Vulnerability Correlator  | Ingest public vulnerability updates and map them to source relationships, artifacts and SBOM components.           | Findings, matches, dispositions, priorities    |
 | Evidence Policy Engine    | Evaluate required provenance/security evidence and signer identities before artifact promotion/consumption.        | Policy decisions / exceptions                  |
 
-## 4.2 Software-factory components
+### 4.2 Software-factory components
 
 | **Component**                    | **Primary responsibility**                                                                                                      |
 |----------------------------------|---------------------------------------------------------------------------------------------------------------------------------|
@@ -292,9 +258,9 @@ candidate / approved / evidence"]
 | Sigstore / Cosign                | Authenticate signers/workloads, sign attestations and verify signed evidence.                                                   |
 | Package Management               | Store/distribute candidate and approved packages/artifacts; retain or link associated SBOM, provenance, vulnerability and promotion evidence. |
 
-# 5. End-to-end workflows
+## 5. End-to-end workflows
 
-## 5.1 Managed fork onboarding
+### 5.1 Managed fork onboarding
 
 ```mermaid
 sequenceDiagram
@@ -348,7 +314,7 @@ sequenceDiagram
 8.  Artifact digest, SBOM digest and signed attestations are bound back
     to the SourceRelationship and internal commit.
 
-## 5.2 Upstream synchronization
+### 5.2 Upstream synchronization
 
 9.  Fetch upstream metadata asynchronously and identify a candidate new
     upstream commit/tag.
@@ -368,7 +334,7 @@ sequenceDiagram
 14. Retain all historic relationships so old artifacts remain traceable
     to the upstream state that actually produced them.
 
-## 5.3 Build and publication
+### 5.3 Build and publication
 
 15. CI checks out the internal repository by immutable SHA.
 
@@ -416,7 +382,7 @@ verify digest + signer + evidence"]
 *Figure 4 - Trust chain from public origin to the exact internal
 artifact consumed.*
 
-# 6. Component / actor responsibilities
+## 6. Component / actor responsibilities
 
 | **Actor / technology**       | **What it does in this design**                                                                                               | **What it does NOT do**                                                             |
 |------------------------------|-------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------|
@@ -432,9 +398,9 @@ artifact consumed.*
 | Package Management | Package/artifact system of record; stores candidate and approved artifacts and retains or links signed evidence, SBOMs and security metadata. | Does not inherently know the upstream fork ancestry unless supplied by this design. |
 | Policy engine                | Turns verified claims + current vulnerability state into allow/block/exception decisions.                                     | Does not create provenance; it consumes verified evidence.                          |
 
-# 7. Evidence and specification model
+## 7. Evidence and specification model
 
-## 7.1 in-toto Attestation Framework
+### 7.1 in-toto Attestation Framework
 
 The current in-toto Attestation Framework documentation identifies v1.2
 as the latest framework version. The stable Statement schema continues
@@ -458,7 +424,7 @@ Design rule: the `subject.digest` is the cryptographic join key. Human
 names, repository paths and versions are useful metadata but are not the
 trust anchor.
 
-## 7.2 SLSA Build Provenance v1
+### 7.2 SLSA Build Provenance v1
 
 SLSA v1.2 Build Provenance uses the in-toto Statement envelope with
 `predicateType: https://slsa.dev/provenance/v1`. The predicate
@@ -477,7 +443,7 @@ build outputs are listed as Statement subjects. [10]
 
 > **Important modeling choice:** Do not force the public upstream base into SLSA `resolvedDependencies` unless the build actually resolved/fetched it. The build depends on the internal commit. Preserve public-to-private ancestry in the Fork Registry and/or a separate source-relationship attestation, then link it to the internal commit.
 
-## 7.3 Vulnerability evidence and VEX
+### 7.3 Vulnerability evidence and VEX
 
 The in-toto attestation repository defines a Vulnerabilities predicate
 intended to carry scanner identity, scanner/database metadata and scan
@@ -493,7 +459,7 @@ rationale. [17] Recommended output: CycloneDX SBOM for inventory +
 decoupled VEX for changing vulnerability disposition, with both
 documents cryptographically bound/signed and indexed by artifact digest.
 
-## 7.4 Sigstore / Cosign role
+### 7.4 Sigstore / Cosign role
 
 ```mermaid
 flowchart LR
@@ -524,7 +490,7 @@ records/witnesses signing events; Sigstore trust material is distributed
 through TUF. Cosign supports in-toto attestations and DSSE signing, and
 can verify those attestations. [11][12]
 
-## 7.5 Enterprise/private Sigstore recommendation
+### 7.5 Enterprise/private Sigstore recommendation
 
 For internal proprietary artifacts, use an enterprise trust boundary
 unless security architecture explicitly approves the public Sigstore
@@ -538,9 +504,9 @@ trust roots, including TUF-based distribution of verification material.
 | Cosign + KMS/HSM key                          | Simpler initial deployment; strong enterprise key custody.                                              | Long-lived key lifecycle/rotation and identity mapping are more operationally explicit.           |
 | Public Sigstore service                       | Minimal infrastructure.                                                                                 | Potential metadata/confidentiality and policy concerns for internal artifacts; requires approval. |
 
-# 8. Data model
+## 8. Data model
 
-## 8.1 Core entities
+### 8.1 Core entities
 
 | **Entity**               | **Purpose**                                                                      | **Key immutable identifiers**                                                 |
 |--------------------------|----------------------------------------------------------------------------------|-------------------------------------------------------------------------------|
@@ -551,7 +517,7 @@ trust roots, including TUF-based distribution of verification material.
 | VulnerabilityDisposition | Firm decision for a specific source/artifact context.                            | finding ID + subject digest/internal SHA + decision revision                  |
 | EvidenceIndex            | Pointer/index of signed evidence stored in or linked from the Package Management/evidence capability.           | subject digest, predicateType, signer identity, evidence digest               |
 
-## 8.2 SourceRelationship illustrative schema
+### 8.2 SourceRelationship illustrative schema
 
 ```json
 {
@@ -577,7 +543,7 @@ trust roots, including TUF-based distribution of verification material.
 ```
 
 
-## 8.3 ArtifactBinding illustrative schema
+### 8.3 ArtifactBinding illustrative schema
 
 ```json
 {
@@ -595,7 +561,7 @@ trust roots, including TUF-based distribution of verification material.
 ```
 
 
-## 8.4 Relationship graph
+### 8.4 Relationship graph
 
 ```mermaid
 flowchart LR
@@ -615,9 +581,9 @@ flowchart LR
 ```
 
 
-# 9. GitProxy extensions required
+## 9. GitProxy extensions required
 
-## 9.1 Data / service layer
+### 9.1 Data / service layer
 
 | **Extension**                      | **Change**                                                                                                                                   |
 |------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------|
@@ -628,7 +594,7 @@ flowchart LR
 | Event/outbox mechanism             | Emit durable events from Git operations and fork lifecycle without coupling the push request to downstream processing.                       |
 | UI additions                       | Repository page sections for Upstream, Sync History, Security, Artifacts and Evidence; dedicated fork intake workflow.                       |
 
-## 9.2 Push/pull processing
+### 9.2 Push/pull processing
 
 | **Proposed processor / hook** | **Purpose**                                                                                    | **Synchronous?**             |
 |-------------------------------|------------------------------------------------------------------------------------------------|------------------------------|
@@ -639,7 +605,7 @@ flowchart LR
 | triggerSecurityReevaluation   | Emit an event when relevant source/head changes.                                               | Async consumer               |
 | CVE/feed lookups              | Never perform live public feed calls in the Git action chain.                                  | No                           |
 
-## 9.3 Configuration
+### 9.3 Configuration
 
 ```json
 {
@@ -664,7 +630,7 @@ configuration direction; names above are illustrative. Existing
 `attestationConfig` should remain reserved for reviewer questions to
 avoid semantic ambiguity. [5]
 
-## 9.4 Suggested service endpoints
+### 9.4 Suggested service endpoints
 
 ```text
 POST /api/oss-forks
@@ -678,7 +644,7 @@ POST /api/vulnerability-dispositions
 GET  /api/evidence/{sha256}
 ```
 
-# 10. Vulnerability correlation and CVE lifecycle
+## 10. Vulnerability correlation and CVE lifecycle
 
 ```mermaid
 flowchart TD
@@ -707,7 +673,7 @@ block promotion / alert owner / rebuild / exception"]
 *Figure 6 - CVE detection, internal analysis, disposition and impact
 flow.*
 
-## 10.1 Matching strategy
+### 10.1 Matching strategy
 
 | **Priority** | **Match method**                       | **Why**                                                                                                    |
 |--------------|----------------------------------------|------------------------------------------------------------------------------------------------------------|
@@ -722,7 +688,7 @@ correlation source for this design. [14] NVD is retained for CVE
 metadata/CVSS/CPE enrichment and CISA KEV is used as a risk-priority
 signal. [15][16]
 
-## 10.2 Upstream vulnerable does not always mean internal artifact vulnerable
+### 10.2 Upstream vulnerable does not always mean internal artifact vulnerable
 
 A managed internal fork may cherry-pick or independently implement a fix
 while remaining based on an upstream release that is nominally affected.
@@ -743,7 +709,7 @@ Final artifact disposition after analysis: PATCHED INTERNALLY / RESOLVED
 Evidence: signed scan + VEX rationale + patch reference
 ```
 
-## 10.3 Feed processing
+### 10.3 Feed processing
 
 - Poll/ingest OSV and NVD incrementally using modified timestamps/batch
   APIs; update normalized aliases (CVE/GHSA/OSV IDs).
@@ -760,7 +726,7 @@ Evidence: signed scan + VEX rationale + patch reference
 - Never delete historic findings; mark withdrawn/superseded source
   records and create new decision revisions.
 
-## 10.4 Decision freshness
+### 10.4 Decision freshness
 
 A vulnerability attestation is a point-in-time claim. Policy must
 therefore consider scan database version/update time and evidence age,
@@ -768,9 +734,9 @@ not merely signature validity. The in-toto vulnerability predicate
 explicitly includes scanner and vulnerability-database context for this
 reason. [9]
 
-# 11. Build, signing and package management publication
+## 11. Build, signing and package management publication
 
-## 11.1 Trusted build contract
+### 11.1 Trusted build contract
 
 - Build only from an internal repository URI and immutable internal
   commit SHA.
@@ -788,7 +754,7 @@ reason. [9]
 - Use distinct signing identities for builder evidence and
   security/vulnerability evidence.
 
-## 11.2 Recommended evidence set per published artifact
+### 11.2 Recommended evidence set per published artifact
 
 | **Evidence**        | **Format / predicate**                                       | **Signer**                        | **Purpose**                                                                      |
 |---------------------|--------------------------------------------------------------|-----------------------------------|----------------------------------------------------------------------------------|
@@ -799,7 +765,7 @@ reason. [9]
 | Source relationship | Custom in-toto predicate or signed registry snapshot         | OSS governance service identity   | Public upstream -> internal repository/base relationship.                       |
 | Promotion decision  | Signed policy/evidence record                                | Release/policy service identity   | Why this digest was allowed into the approved package repository.                           |
 
-## 11.3 Package management repository layout
+### 11.3 Package management repository layout
 
 ```text
 package-management/
@@ -819,9 +785,9 @@ The Package Management capability should either store signed evidence natively a
 
 > **Do not trust repository path as identity:** Promotion should copy/move an artifact only after verification of its SHA-256 and evidence. A filename such as `foo-4.7.2-internal.3.jar` is descriptive; the digest is authoritative.
 
-# 12. Policy and control model
+## 12. Policy and control model
 
-## 12.1 Candidate -> approved promotion policy
+### 12.1 Candidate -> approved promotion policy
 
 ```text
 ALLOW promotion only when:
@@ -838,7 +804,7 @@ ALLOW promotion only when:
 ELSE DENY
 ```
 
-## 12.2 Example policy tiers
+### 12.2 Example policy tiers
 
 | **Tier**    | **Example rule**                                                                                                                                       |
 |-------------|--------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -849,7 +815,7 @@ ELSE DENY
 | Publication | Artifact digest, provenance digest and signature must verify before entering approved repo.                                                            |
 | Consumption | Deployment/package consumers may optionally enforce that the artifact is sourced only from approved repository and has current verified evidence.      |
 
-## 12.3 Human review and machine evidence
+### 12.3 Human review and machine evidence
 
 GitProxy’s existing reviewer attestation can remain part of repository
 approval, but it should be represented as a separate human governance
@@ -857,7 +823,7 @@ event. Machine-generated in-toto/Sigstore evidence should not be reduced
 to a checkbox answer; conversely, cryptographic provenance does not
 replace legal/OSS approval.
 
-# 13. Security and threat considerations
+## 13. Security and threat considerations
 
 | **Threat**                                                             | **Control**                                                                                                                                                                              |
 |------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -874,7 +840,7 @@ replace legal/OSS approval.
 | CVE maps to upstream release but internal patch fixes it               | Store candidate match separately from artifact-specific disposition and signed VEX rationale.                                                                                            |
 | CVE feed false positive/withdrawal                                     | Keep source provenance and normalized aliases; record withdrawn/superseded state; revise disposition without deleting history.                                                           |
 
-# 14. Implementation plan
+## 14. Implementation plan
 
 | **Phase**                     | **Deliverable**                                                                                                        | **Exit criteria**                                                                        |
 |-------------------------------|------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------|
@@ -885,7 +851,7 @@ replace legal/OSS approval.
 | 4 - Promotion enforcement     | Evidence policy engine + Package Management promotion gate + exceptions.                                                      | Artifact cannot enter approved repo without required verified evidence/security posture. |
 | 5 - Enterprise impact graph   | Map artifact consumption to applications/releases/deployments.                                                         | CVE query answers upstream -> fork -> artifact -> consuming applications.             |
 
-## 14.1 Suggested first vertical slice
+### 14.1 Suggested first vertical slice
 
 Choose one Maven or npm OSS project with a known historic CVE and create
 the complete path: public SHA -> managed internal fork -> internal
@@ -894,7 +860,7 @@ vulnerability/VEX evidence -> Sigstore signature -> Package Management
 candidate -> policy promotion. This validates the data joins before
 scaling feed ingestion.
 
-## 14.2 Operational metrics
+### 14.2 Operational metrics
 
 - Percentage of managed OSS artifacts with complete artifact->internal
   SHA->upstream SHA traceability.
@@ -911,9 +877,9 @@ scaling feed ingestion.
 
 - Number/age of policy exceptions and KEV-exposed artifacts.
 
-# 15. Key design decisions and open questions
+## 15. Key design decisions and open questions
 
-## 15.1 Recommended decisions
+### 15.1 Recommended decisions
 
 | **Decision**                            | **Recommendation**                                                                                                           |
 |-----------------------------------------|------------------------------------------------------------------------------------------------------------------------------|
@@ -926,7 +892,7 @@ scaling feed ingestion.
 | Where is evidence stored?               | Prefer the enterprise Package Management capability as the artifact/evidence system of record when it supports signed evidence; otherwise use a dedicated evidence repository indexed by artifact digest. |
 | What should GitProxy plugins do?        | Only fast Git-path policy/event work. Core UI/API/persistence changes are required for the full capability.                  |
 
-## 15.2 Open architecture questions
+### 15.2 Open architecture questions
 
 - Which internal SCM(s) must be supported on day one, and can the fork
   service create repositories via provider APIs?
@@ -950,9 +916,9 @@ scaling feed ingestion.
 - What legal/licensing checks are mandatory before a public project is
   imported or updated?
 
-# Appendix A. Example records and attestations
+## Appendix A. Example records and attestations
 
-## A.1 Source relationship in-toto predicate (proposed internal type)
+### A.1 Source relationship in-toto predicate (proposed internal type)
 
 This is intentionally separate from SLSA provenance. It describes source
 ancestry rather than how a particular build executed.
@@ -978,7 +944,7 @@ ancestry rather than how a particular build executed.
 ```
 
 
-## A.2 SLSA provenance sketch
+### A.2 SLSA provenance sketch
 
 ```json
 {
@@ -1006,7 +972,7 @@ ancestry rather than how a particular build executed.
 ```
 
 
-## A.3 Vulnerability disposition sketch
+### A.3 Vulnerability disposition sketch
 
 ```text
 Finding: CVE-2026-12345
@@ -1024,7 +990,7 @@ Policy outcome: allow publication (finding resolved for this exact
 artifact digest)
 ```
 
-# Appendix B. Specifications and source references
+## Appendix B. Specifications and source references
 
 **[1] FINOS GitProxy - Architecture -**
 [https://git-proxy.finos.org/docs/architecture/](https://git-proxy.finos.org/docs/architecture/)
